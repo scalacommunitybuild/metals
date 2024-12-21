@@ -11,6 +11,7 @@ Global / resolvers += "scala-integration" at
 
 def localSnapshotVersion = "1.4.3-SNAPSHOT"
 def isCI = System.getenv("CI") != null
+def isTest = System.getenv("METALS_TEST") != null
 
 def isScala211(v: Option[(Long, Long)]): Boolean = v.contains((2, 11))
 def isScala212(v: Option[(Long, Long)]): Boolean = v.contains((2, 12))
@@ -41,7 +42,7 @@ ThisBuild / semanticdbVersion := V.semanticdb(scalaVersion.value)
 inThisBuild(
   List(
     version ~= { dynVer =>
-      if (isCI) dynVer
+      if (isCI && !isTest) dynVer
       else localSnapshotVersion // only for local publishing
     },
     scalaVersion := V.scala213,
@@ -258,7 +259,7 @@ lazy val mtagsShared = project
     },
     libraryDependencies ++= List(
       "org.lz4" % "lz4-java" % "1.8.0",
-      "com.google.protobuf" % "protobuf-java" % "4.29.1",
+      "com.google.protobuf" % "protobuf-java" % "4.29.2",
       V.guava,
       "io.get-coursier" % "interface" % V.coursierInterfaces,
     ),
@@ -526,7 +527,20 @@ lazy val `sbt-metals` = project
       "lastSupportedSemanticdb" -> SemanticDbSupport.last,
     ),
     scalaVersion := V.scala212,
+    crossScalaVersions := Seq(V.scala212, V.scala3ForSBT2),
     scriptedLaunchOpts ++= Seq(s"-Dplugin.version=${version.value}"),
+    (pluginCrossBuild / sbtVersion) := {
+      scalaBinaryVersion.value match {
+        case "2.12" => "1.5.8"
+        case _ => "2.0.0-M3"
+      }
+    },
+    scalacOptions ++= {
+      scalaBinaryVersion.value match {
+        case "2.12" => "-Xsource:3" :: Nil
+        case _ => Nil
+      }
+    },
   )
   .settings(sharedScalacOptions)
   .enablePlugins(BuildInfoPlugin, SbtPlugin)

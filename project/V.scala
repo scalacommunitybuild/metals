@@ -7,6 +7,7 @@ object V {
   val scala213 = "2.13.15"
   val lastPublishedScala3 = "3.3.3"
   val scala3 = "3.3.4"
+  val scala3ForSBT2 = "3.6.2"
 
   // When you can add to removedScalaVersions in MtagsResolver.scala with the last released version
   val sbtScala = "2.12.18"
@@ -21,7 +22,7 @@ object V {
   val bloop = "2.0.6"
   val bloopConfig = "2.1.0"
   val bsp = "2.2.0-M2"
-  val coursier = "2.1.21"
+  val coursier = "2.1.22"
   // changing coursier interfaces version may be not binary compatible.
   // After each update of coursier interfaces, remember to bump the version in dotty repository.
   val coursierInterfaces = "1.0.26"
@@ -48,7 +49,7 @@ object V {
   val scribe = "3.15.3"
   val qdox = "2.2.0"
 
-  val guava = "com.google.guava" % "guava" % "33.3.1-jre"
+  val guava = "com.google.guava" % "guava" % "33.4.0-jre"
   val lsp4j = "org.eclipse.lsp4j" % "org.eclipse.lsp4j" % lsp4jV
   val dap4j = "org.eclipse.lsp4j" % "org.eclipse.lsp4j.debug" % lsp4jV
 

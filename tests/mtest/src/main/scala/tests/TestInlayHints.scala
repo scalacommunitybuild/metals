@@ -26,21 +26,39 @@ object TestInlayHints {
   //     |
   //     v
   // val y<<: T/*(0:5,0:5)*/>> = x
-  def decorationString(inlayHint: InlayHint): String = {
+  def decorationString(inlayHint: InlayHint, withTooltip: Boolean): String = {
     val buffer = ListBuffer.empty[String]
 
     val labels = inlayHint.getLabel().asScala match {
       case Left(label) => List(label)
       case Right(labelParts) => labelParts.asScala.map(_.getValue()).toList
     }
-    val data =
-      InlayHints.fromData(inlayHint.getData().asInstanceOf[JsonElement])._2
+
+    val tooltip = Option(inlayHint.getTooltip()).map(t =>
+      t.asScala match {
+        case Left(tooltip) => tooltip
+        case Right(markdown) => markdown.getValue()
+      }
+    )
+    val data = inlayHint.getData()
 
     buffer += "/*"
-    labels.zip(data).foreach { case (label, data) =>
-      buffer += label
-      buffer ++= readData(data)
+    if (data != null) {
+      val dataDecoded =
+        InlayHints.fromData(data.asInstanceOf[JsonElement])._2
+      labels.zip(dataDecoded).foreach { case (label, data) =>
+        buffer += label
+        buffer ++= readData(data)
+      }
+    } else {
+      buffer += labels.mkString
     }
+    if (withTooltip)
+      tooltip.foreach { tooltip =>
+        buffer += "| "
+        buffer += tooltip.replace("\n", "\\n")
+        buffer += " |"
+      }
     buffer += "*/"
     buffer.toList.mkString
   }
@@ -55,9 +73,13 @@ object TestInlayHints {
     }
   }
 
-  def applyInlayHints(text: String, inlayHints: List[InlayHint]): String = {
+  def applyInlayHints(
+      text: String,
+      inlayHints: List[InlayHint],
+      withTooltip: Boolean
+  ): String = {
     val textEdits = inlayHints.map { hint =>
-      val newText = decorationString(hint)
+      val newText = decorationString(hint, withTooltip)
       val range = new l.Range(hint.getPosition(), hint.getPosition())
       new TextEdit(
         range,
