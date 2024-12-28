@@ -469,7 +469,6 @@ lazy val metals = project
       // For starting Ammonite
       "io.github.alexarchambault.ammonite" %% "ammonite-runner" % "0.4.0",
       "org.scala-lang.modules" %% "scala-xml" % "2.3.0",
-      "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4",
       ("org.virtuslab.scala-cli" % "scala-cli-bsp" % V.scalaCli)
         .exclude("ch.epfl.scala", "bsp4j"),
     ),
@@ -528,6 +527,7 @@ lazy val `sbt-metals` = project
     ),
     scalaVersion := V.scala212,
     crossScalaVersions := Seq(V.scala212, V.scala3ForSBT2),
+    scalacOptions := Seq("-release", "8"),
     scriptedLaunchOpts ++= Seq(s"-Dplugin.version=${version.value}"),
     (pluginCrossBuild / sbtVersion) := {
       scalaBinaryVersion.value match {

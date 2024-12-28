@@ -20,7 +20,7 @@ object V {
   val ammonite = "3.0.0-2-6342755f"
   val betterMonadicFor = "0.3.1"
   val bloop = "2.0.6"
-  val bloopConfig = "2.1.0"
+  val bloopConfig = "2.2.0"
   val bsp = "2.2.0-M2"
   val coursier = "2.1.22"
   // changing coursier interfaces version may be not binary compatible.
@@ -45,7 +45,7 @@ object V {
   val scalaCli = "1.5.4"
   val scalafix = "0.13.0"
   val scalafmt = "3.7.15"
-  val scalameta = "4.12.1"
+  val scalameta = "4.12.3"
   val scribe = "3.15.3"
   val qdox = "2.2.0"
 
