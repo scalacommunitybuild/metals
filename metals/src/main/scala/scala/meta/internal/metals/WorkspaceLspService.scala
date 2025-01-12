@@ -20,7 +20,6 @@ import scala.meta.internal.metals.DidFocusResult
 import scala.meta.internal.metals.HoverExtParams
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals.MetalsLspService
-import scala.meta.internal.metals.WindowStateDidChangeParams
 import scala.meta.internal.metals.clients.language.ConfiguredLanguageClient
 import scala.meta.internal.metals.clients.language.MetalsLanguageClient
 import scala.meta.internal.metals.config.StatusBarState
@@ -722,13 +721,6 @@ class WorkspaceLspService(
     }
   }
 
-  override def windowStateDidChange(params: WindowStateDidChangeParams): Unit =
-    if (params.focused) {
-      folderServices.foreach(_.unpause())
-    } else {
-      folderServices.foreach(_.pause())
-    }
-
   private def failedRequest(
       message: String
   ): Future[Object] = {
@@ -1215,7 +1207,10 @@ class WorkspaceLspService(
 
         val textDocumentSyncOptions = new lsp4j.TextDocumentSyncOptions
         textDocumentSyncOptions.setChange(lsp4j.TextDocumentSyncKind.Full)
-        textDocumentSyncOptions.setSave(new lsp4j.SaveOptions(true))
+        // We don't use the text at all.
+        textDocumentSyncOptions.setSave(
+          new lsp4j.SaveOptions( /* includeText = */ false)
+        )
         textDocumentSyncOptions.setOpenClose(true)
 
         val scalaFilesPattern = new lsp4j.FileOperationPattern("**/*.scala")

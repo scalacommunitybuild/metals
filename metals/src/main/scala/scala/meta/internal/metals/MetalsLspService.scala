@@ -235,8 +235,6 @@ abstract class MetalsLspService(
     "trees",
   )
 
-  def pauseables: Pauseable
-
   protected val trees = new Trees(buffers, scalaVersionSelector)
 
   protected val documentSymbolProvider = new DocumentSymbolProvider(
@@ -832,10 +830,6 @@ abstract class MetalsLspService(
         Future.successful(DidFocusResult.NoBuildTarget)
     }
 
-  def pause(): Unit = pauseables.pause()
-
-  def unpause(): Unit = pauseables.unpause()
-
   override def didChange(
       params: DidChangeTextDocumentParams
   ): CompletableFuture[Unit] = {
@@ -872,9 +866,6 @@ abstract class MetalsLspService(
   ): CompletableFuture[Unit] = {
     val path = params.getTextDocument.getUri.toAbsolutePath
     savedFiles.add(path)
-    // read file from disk, we only remove files from buffers on didClose.
-    val text = path.toInput.text
-    buffers.put(path, text)
     Future
       .sequence(
         List(
