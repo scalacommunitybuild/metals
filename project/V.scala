@@ -4,7 +4,7 @@ object V {
   val scala210 = "2.10.7"
   val scala211 = "2.11.12"
   val scala212 = "2.12.20"
-  val scala213 = "2.13.15"
+  val scala213 = "2.13.16"
   val lastPublishedScala3 = "3.3.3"
   val scala3 = "3.3.4"
   val scala3ForSBT2 = "3.6.2"
@@ -36,9 +36,9 @@ object V {
   val kindProjector = "0.13.3"
   val lsp4jV = "0.23.1"
   val mavenBloop = "2.0.1"
-  val mill = "0.12.2"
+  val mill = "0.12.5"
   val mdoc = "2.6.2"
-  val munit = "1.0.3"
+  val munit = "1.0.4"
   val pprint = "0.7.3"
   val sbtBloop = bloop
   val sbtJdiTools = "1.1.1"
@@ -46,7 +46,7 @@ object V {
   val scalafix = "0.13.0"
   val scalafmt = "3.7.15"
   val scalameta = "4.12.3"
-  val scribe = "3.15.3"
+  val scribe = "3.16.0"
   val qdox = "2.2.0"
 
   val guava = "com.google.guava" % "guava" % "33.4.0-jre"
@@ -152,6 +152,7 @@ object V {
     "2.13.12",
     "2.13.13",
     "2.13.14",
+    "2.13.15",
   )
 
   def minimumSupportedSbtVersion = {
