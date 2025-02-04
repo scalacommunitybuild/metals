@@ -6,7 +6,7 @@ object V {
   val scala212 = "2.12.20"
   val scala213 = "2.13.16"
   val lastPublishedScala3 = "3.3.3"
-  val scala3 = "3.3.4"
+  val scala3 = "3.3.5"
   val scala3ForSBT2 = "3.6.2"
 
   // When you can add to removedScalaVersions in MtagsResolver.scala with the last released version
@@ -34,10 +34,10 @@ object V {
   val javaSemanticdb = "0.10.3"
   val jsoup = "1.18.3"
   val kindProjector = "0.13.3"
-  val lsp4jV = "0.23.1"
+  val lsp4jV = "0.24.0"
   val mavenBloop = "2.0.1"
-  val mill = "0.12.5"
-  val mdoc = "2.6.2"
+  val mill = "0.12.7"
+  val mdoc = "2.6.3"
   val munit = "1.0.4"
   val pprint = "0.7.3"
   val sbtBloop = bloop
