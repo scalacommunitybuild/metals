@@ -8,6 +8,7 @@ object V {
   val lastPublishedScala3 = "3.3.3"
   val scala3 = "3.3.5"
   val scala3ForSBT2 = "3.6.2"
+  val latestScala3Next = "3.6.3"
 
   // When you can add to removedScalaVersions in MtagsResolver.scala with the last released version
   val sbtScala = "2.12.18"
@@ -20,12 +21,12 @@ object V {
   val ammonite = "3.0.0-2-6342755f"
   val betterMonadicFor = "0.3.1"
   val bloop = "2.0.8"
-  val bloopConfig = "2.3.1"
+  val bloopConfig = "2.3.2"
   val bsp = "2.2.0-M2"
   val coursier = "2.1.24"
   // changing coursier interfaces version may be not binary compatible.
   // After each update of coursier interfaces, remember to bump the version in dotty repository.
-  val coursierInterfaces = "1.0.27"
+  val coursierInterfaces = "1.0.28"
   val debugAdapter = "4.2.3"
   val genyVersion = "1.0.0"
   val gitter8Version = "0.17.0"
@@ -36,8 +37,8 @@ object V {
   val kindProjector = "0.13.3"
   val lsp4jV = "0.24.0"
   val mavenBloop = "2.0.1"
-  val mill = "0.12.7"
-  val mdoc = "2.6.3"
+  val mill = "0.12.8"
+  val mdoc = "2.6.4"
   val munit = "1.0.4"
   val pprint = "0.7.3"
   val sbtBloop = bloop
