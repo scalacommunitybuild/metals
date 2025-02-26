@@ -254,11 +254,6 @@ lazy val mtagsShared = project
     ),
     crossVersion := CrossVersion.full,
     Compile / packageSrc / publishArtifact := true,
-    Compile / scalacOptions ++= {
-      if (scalaVersion.value == V.lastPublishedScala3)
-        List("-Yexplicit-nulls", "-language:unsafeNulls")
-      else Nil
-    },
     libraryDependencies ++= List(
       "org.lz4" % "lz4-java" % "1.8.0",
       "com.google.protobuf" % "protobuf-java" % "4.29.3",
@@ -369,27 +364,6 @@ val mtagsSettings = List(
   },
 )
 
-lazy val mtags3 = project
-  .in(file(".mtags"))
-  .settings(
-    Compile / unmanagedSourceDirectories := Seq(),
-    sharedSettings,
-    mtagsSettings,
-    Compile / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "mtags" / "src" / "main" / "scala",
-    Compile / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "mtags-shared" / "src" / "main" / "scala",
-    Compile / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "mtags-shared" / "src" / "main" / "scala-3",
-    moduleName := "mtags3",
-    scalaVersion := V.lastPublishedScala3,
-    target := (ThisBuild / baseDirectory).value / "mtags" / "target" / "target3",
-    publish / skip := true,
-    libraryDependencies += V.guava,
-    scalafixConfig := Some(
-      (ThisBuild / baseDirectory).value / ".scalafix3.conf"
-    ),
-  )
-  .dependsOn(interfaces)
-  .enablePlugins(BuildInfoPlugin)
-
 lazy val mtags = project
   .settings(
     sharedSettings,
@@ -427,7 +401,7 @@ lazy val metals = project
       "io.undertow" % "undertow-core" % "2.2.20.Final",
       "org.jboss.xnio" % "xnio-nio" % "3.8.16.Final",
       // for persistent data like "dismissed notification"
-      "org.flywaydb" % "flyway-core" % "11.3.2",
+      "org.flywaydb" % "flyway-core" % "11.3.3",
       "com.h2database" % "h2" % "2.3.232",
       // for BSP
       "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.6.3",
@@ -471,6 +445,8 @@ lazy val metals = project
       "org.scala-lang.modules" %% "scala-xml" % "2.3.0",
       ("org.virtuslab.scala-cli" % "scala-cli-bsp" % V.scalaCli)
         .exclude("ch.epfl.scala", "bsp4j"),
+      // For test frameworks
+      "ch.epfl.scala" %% "bloop-config" % V.bloopConfig,
     ),
     buildInfoPackage := "scala.meta.internal.metals",
     buildInfoKeys := Seq[BuildInfoKey](
@@ -498,7 +474,6 @@ lazy val metals = project
       "supportedScalaVersions" -> V.supportedScalaVersions,
       "supportedScala2Versions" -> V.scala2Versions,
       "minimumSupportedSbtVersion" -> V.minimumSupportedSbtVersion,
-      "supportedScala3Versions" -> V.scala3Versions,
       "supportedScalaBinaryVersions" -> V.supportedScalaBinaryVersions,
       "deprecatedScalaVersions" -> V.deprecatedScalaVersions,
       "nonDeprecatedScalaVersions" -> V.nonDeprecatedScalaVersions,
@@ -661,10 +636,10 @@ lazy val mtest = project
       List(
         "org.scalameta" %% "munit" % {
           if (scalaVersion.value.startsWith("2.11")) "1.0.0-M10"
+          else if (scalaVersion.value == "2.13.15") "1.0.4"
           else if (scalaVersion.value == "2.13.14") "1.0.2"
           else if (scalaVersion.value == "2.13.13") "1.0.0"
           else if (scalaVersion.value == "2.13.12") "1.0.0-M11"
-          else if (scalaVersion.value == "2.13.11") "1.0.0-M10"
           else V.munit
         },
         "io.get-coursier" % "interface" % V.coursierInterfaces,
@@ -677,7 +652,6 @@ lazy val mtest = project
       "scala213" -> V.scala213,
       "scala3" -> V.scala3,
       "scala2Versions" -> V.scala2Versions,
-      "scala3Versions" -> V.scala3Versions,
       "scala2Versions" -> V.scala2Versions,
       "scalaVersion" -> scalaVersion.value,
       "kindProjector" -> V.kindProjector,
@@ -761,7 +735,6 @@ lazy val unit = project
     Test / javaOptions += "-Xmx2G",
     libraryDependencies ++= List(
       "io.get-coursier" %% "coursier" % V.coursier, // for jars
-      "ch.epfl.scala" %% "bloop-config" % V.bloopConfig,
       "org.scalameta" %% "munit" % V.munit,
     ),
     buildInfoPackage := "tests",
