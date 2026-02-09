@@ -3,6 +3,7 @@ package scala.meta.internal.metals.clients.language
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.concurrent.ExecutionContext
@@ -27,7 +28,6 @@ import org.eclipse.lsp4j.MessageType
 import org.eclipse.lsp4j.ProgressParams
 import org.eclipse.lsp4j.ShowMessageRequestParams
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams
-import requests.TimeoutException
 
 /**
  * Delegates requests/notifications to the underlying language client according to the user configuration.
@@ -39,7 +39,7 @@ import requests.TimeoutException
 final class ConfiguredLanguageClient(
     initial: MetalsLanguageClient,
     clientConfig: ClientConfiguration,
-    service: WorkspaceLspService,
+    service: Option[WorkspaceLspService],
 )(implicit ec: ExecutionContext)
     extends DelegatingLanguageClient(initial) {
 
@@ -47,6 +47,20 @@ final class ConfiguredLanguageClient(
     new ConcurrentHashMap()
   override def shutdown(): Unit = {
     underlying = NoopLanguageClient
+  }
+
+  override def showMessageRequest(
+      params: ShowMessageRequestParams,
+      defaultTo: () => MessageActionItem,
+  ): CompletableFuture[MessageActionItem] = {
+    pendingShowMessage.set(true)
+    val result = if (clientConfig.initialConfig.disableShowMessageRequest) {
+      CompletableFuture.completedFuture(defaultTo())
+    } else {
+      underlying.showMessageRequest(params)
+    }
+    result.asScala.onComplete(_ => pendingShowMessage.set(false))
+    result
   }
 
   override def metalsStatus(params: MetalsStatusParams): Unit = {
@@ -81,10 +95,12 @@ final class ConfiguredLanguageClient(
             case `action` =>
               val execCommandParams =
                 new ExecuteCommandParams(params.command, List.empty.asJava)
-              if (ServerCommands.allIds.contains(params.command)) {
-                service.executeCommand(execCommandParams)
-              } else {
-                underlying.metalsExecuteClientCommand(execCommandParams)
+              service match {
+                case Some(service)
+                    if ServerCommands.allIds.contains(params.command) =>
+                  service.executeCommand(execCommandParams)
+                case _ =>
+                  underlying.metalsExecuteClientCommand(execCommandParams)
               }
             case _ =>
           }
@@ -101,6 +117,7 @@ final class ConfiguredLanguageClient(
   }
 
   private val pendingShowMessage = new AtomicBoolean(false)
+
   override def showMessageRequest(
       params: ShowMessageRequestParams
   ): CompletableFuture[MessageActionItem] = {
@@ -114,6 +131,7 @@ final class ConfiguredLanguageClient(
       params: ShowMessageRequestParams,
       cancelationGroup: String,
       cancelValue: => MessageActionItem = Messages.missedByUser,
+      defaultTo: () => MessageActionItem = () => Messages.missedByUser,
   ): Future[MessageActionItem] = {
     val promise = Promise[Unit]()
     // put promise into cancellation map
@@ -126,7 +144,7 @@ final class ConfiguredLanguageClient(
     )
 
     // call client
-    val result = showMessageRequest(params)
+    val result = showMessageRequest(params, defaultTo)
     val future =
       Future
         .firstCompletedOf(
@@ -138,7 +156,7 @@ final class ConfiguredLanguageClient(
             },
           )
         )
-        .withTimeout(15, TimeUnit.SECONDS)
+        .withTimeout(15, TimeUnit.SECONDS, Some("sending showMessageRequest"))
         .recover { case _: TimeoutException =>
           result.cancel(false)
           Messages.missedByUser

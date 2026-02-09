@@ -5,7 +5,6 @@ import scala.concurrent.ExecutionContext
 
 import scala.meta.internal.bsp.BspSession
 import scala.meta.internal.metals.BloopServers
-import scala.meta.internal.metals.BuildInfo
 import scala.meta.internal.metals.JavaInfo
 import scala.meta.internal.metals.JavaTarget
 import scala.meta.internal.metals.JdkSources
@@ -31,7 +30,7 @@ class ProblemResolver(
       case Some(bspSession) =>
         bspSession.main.name == BloopServers.name && !SemVer
           .isCompatibleVersion(
-            BuildInfo.bloopVersion,
+            BloopServers.minimumBloopVersion,
             bspSession.main.version,
           )
       case None =>
@@ -74,6 +73,7 @@ class ProblemResolver(
         case FutureScalaVersion(version) => futureVersions += version
         case _: SemanticDBDisabled => misconfiguredProjects += 1
         case _: MissingSourceRoot => misconfiguredProjects += 1
+        case _: WrongScalaReleaseVersion => misconfiguredProjects += 1
         case UnsupportedSbtVersion => unsupportedSbt = true
         case _: DeprecatedSbtVersion => deprecatedSbt = true
         case _: DeprecatedRemovedSbtVersion => deprecatedRemovedSbt = true
@@ -304,7 +304,25 @@ class ProblemResolver(
         }
       }
 
+    def wrongScalaRelease: Option[ScalaProblem] = {
+      val releaseVersion =
+        scalaTarget.scalac.releaseVersion.flatMap(_.toIntOption)
+      val metalsJavaVersion =
+        Option(sys.props("java.version")).flatMap(JdkVersion.parse)
+      releaseVersion.zip(metalsJavaVersion) match {
+        case Some((release, metalsVersion)) if metalsVersion.major < release =>
+          Some(
+            WrongScalaReleaseVersion(
+              metalsVersion.major.toString(),
+              release.toString(),
+            )
+          )
+        case _ => None
+      }
+    }
+
     scalaVersionProblem
+      .orElse(wrongScalaRelease)
       .orElse(javaSourcesProblem)
       .orElse(outdatedMunitInterface)
       .orElse(outdatedJunitInterface)

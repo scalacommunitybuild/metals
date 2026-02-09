@@ -2,6 +2,7 @@ package tests.feature
 
 import scala.meta.internal.metals.codeactions.ConvertToNamedArguments
 import scala.meta.internal.metals.codeactions.CreateNewSymbol
+import scala.meta.internal.metals.codeactions.ExplainDiagnostic
 import scala.meta.internal.metals.codeactions.ExtractValueCodeAction
 import scala.meta.internal.metals.codeactions.ImportMissingSymbol
 import scala.meta.internal.metals.codeactions.ImportMissingSymbolQuickFix
@@ -69,7 +70,9 @@ class ImportMissingSymbolCrossLspSuite
         |def main =
         |  println(1.<<incr>>)
         |""".stripMargin,
+    // https://github.com/scalameta/metals/issues/7998
     s"""|${ImportMissingSymbol.title("incr", "example.IntEnrichment")}
+        |${CreateNewSymbol.method("incr")}
         |${ExtractValueCodeAction.title("1.incr")}
         |${ConvertToNamedArguments.title("println(...)")}
         |""".stripMargin,
@@ -111,6 +114,7 @@ class ImportMissingSymbolCrossLspSuite
         |  println(1.<<incr>>)
         |""".stripMargin,
     s"""|${ImportMissingSymbol.title("incr", "example.A$package")}
+        |${CreateNewSymbol.method("incr")}
         |${ExtractValueCodeAction.title("1.incr")}
         |${ConvertToNamedArguments.title("println(...)")}
         |""".stripMargin,
@@ -168,7 +172,7 @@ class ImportMissingSymbolCrossLspSuite
        |}
        |""".stripMargin,
     s"""|${ImportMissingSymbol.title("Future", "scala.concurrent")}
-        |${ImportMissingSymbol.title("Future", "java.util.concurrent")}
+        |${SourceAddMissingImports.title}
         |${CreateNewSymbol.title("Future")}
         |""".stripMargin,
     """|package a
@@ -262,6 +266,7 @@ class ImportMissingSymbolCrossLspSuite
         |""".stripMargin,
     s"""|${ImportMissingSymbol.title("A", "example.a")}
         |${CreateNewSymbol.title("A")}
+        |${ExplainDiagnostic.title}
         |""".stripMargin,
     s"""|import example.a.A
         |package example.a {

@@ -1,5 +1,6 @@
 package scala.meta.internal.metals.doctor
 
+import scala.meta.internal.metals.BloopServers
 import scala.meta.internal.metals.BuildInfo
 import scala.meta.internal.metals.ScalaVersions
 import scala.meta.io.AbsolutePath
@@ -62,7 +63,7 @@ case class SemanticDBDisabled(
 ) extends ScalaProblem {
   override def message: String = {
     if (unsupportedBloopVersion) {
-      s"""|The installed Bloop server version is $bloopVersion while Metals requires at least Bloop version ${BuildInfo.bloopVersion},
+      s"""|The installed Bloop server version is $bloopVersion while Metals requires at least Bloop version ${BloopServers.minimumBloopVersion},
           |To fix this problem please update your Bloop server.""".stripMargin
     } else if (
       ScalaVersions.isSupportedAtReleaseMomentScalaVersion(scalaVersion)
@@ -117,4 +118,11 @@ case class MissingJdkSources(candidates: List[AbsolutePath])
   private val candidateString = candidates.mkString(", ")
   override def message: String =
     s"Goto definition for Java classes will not work, please install jdk sources in java home. Searched: $candidateString"
+}
+
+case class WrongScalaReleaseVersion(current: String, needed: String)
+    extends ScalaProblem {
+  override def message: String =
+    s"Metals is currently running on Java $current, but the build definition requires Java $needed due to the `-release` flag. " +
+      s"Please change the Java version used by Metals to at least $needed."
 }

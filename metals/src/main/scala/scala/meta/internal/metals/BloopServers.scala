@@ -186,7 +186,13 @@ final class BloopServers(
           )
           languageClient
             .showMessageRequest(
-              Messages.BloopJvmPropertiesChange.params()
+              Messages.BloopJvmPropertiesChange.params(),
+              defaultTo = () => {
+                languageClient.showMessage(
+                  Messages.BloopJvmPropertiesChange.notificationParams()
+                )
+                Messages.BloopJvmPropertiesChange.notNow
+              },
             )
             .asScala
             .flatMap {
@@ -525,4 +531,6 @@ object BloopServers {
   }
 
   def defaultBloopVersion = BloopRifleConfig.defaultVersion
+
+  def minimumBloopVersion = "2.0.17"
 }

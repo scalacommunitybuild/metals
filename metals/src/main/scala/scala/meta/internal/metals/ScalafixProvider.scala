@@ -66,6 +66,7 @@ case class ScalafixProvider(
   def runRulesOrPrompt(
       file: AbsolutePath,
       rules: List[String],
+      isRepublished: Boolean = false,
   ): Future[List[l.TextEdit]] = {
     lazy val generatedRules =
       ScalafixLlmRuleProvider.generatedRules(workspace).keySet
@@ -85,7 +86,7 @@ case class ScalafixProvider(
         )
 
       }
-      runRules(file, rulesToRun, additionalDeps)
+      runRules(file, rulesToRun, additionalDeps, isRepublished = isRepublished)
     }
   }
 
@@ -93,6 +94,7 @@ case class ScalafixProvider(
       file: AbsolutePath,
       ruleName: String,
       ruleDep: Dependency,
+      isRepublished: Boolean = false,
   ): Future[List[l.TextEdit]] = {
     val scalaTarget = buildTargets.inverseSources(file)
     scalaTarget
@@ -106,6 +108,7 @@ case class ScalafixProvider(
           scalaTarget,
           List(ruleName),
           additionalDeps,
+          isRepublished = isRepublished,
         )
       }
       .getOrElse(Future.successful(Nil))
@@ -131,12 +134,15 @@ case class ScalafixProvider(
       additionalDeps: Map[String, Dependency] = Map.empty,
       retried: Boolean = false,
       silent: Boolean = false,
+      isRepublished: Boolean = false,
   ): Future[List[l.TextEdit]] = {
     val fromDisk = file.toInput
     val inBuffers = file.toInputFromBuffers(buffers)
 
     additionalDeps.foreach { case (ruleName, dep) =>
-      scribe.debug(s"Running rule $ruleName with dep $dep")
+      scribe.debug(
+        s"Running rule $ruleName with dep $dep on $file, the rule is republished: $isRepublished"
+      )
     }
 
     compilations
@@ -150,6 +156,7 @@ case class ScalafixProvider(
             retried || isUnsaved(inBuffers.text, fromDisk.text),
             rules,
             additionalDeps = additionalDeps,
+            isRepublished = isRepublished,
           )
 
         scalafixEvaluation
@@ -416,6 +423,7 @@ case class ScalafixProvider(
       suggestConfigAmend: Boolean = true,
       shouldRetry: Boolean = true,
       additionalDeps: Map[String, Dependency] = Map.empty,
+      isRepublished: Boolean = false,
   ): Future[ScalafixEvaluation] = {
     val isScala3 = ScalaVersions.isScala3Version(scalaTarget.scalaVersion)
     val isSource3 = scalaTarget.scalac.getOptions().contains("-Xsource:3")
@@ -468,6 +476,7 @@ case class ScalafixProvider(
       urlClassLoaderWithExternalRule <- getRuleClassLoader(
         scalafixRulesKey,
         api.getClass.getClassLoader,
+        isRepublished,
       )
     } yield {
       val scalacOptions = {
@@ -613,7 +622,17 @@ case class ScalafixProvider(
           languageClient
             .showMessageRequest(
               Messages.ScalafixConfig
-                .amendRequest(settingLines, scalaVersion, isScalaSource)
+                .amendRequest(settingLines, scalaVersion, isScalaSource),
+              defaultTo = () => {
+                languageClient.showMessage(
+                  Messages.ScalafixConfig.notificationParams(
+                    settingLines,
+                    scalaVersion,
+                    isScalaSource,
+                  )
+                )
+                Messages.ScalafixConfig.ignore
+              },
             )
             .asScala
             .map {
@@ -634,7 +653,11 @@ case class ScalafixProvider(
                 tables.dismissedNotifications.ScalafixConfAmend.dismissForever()
               case _ =>
             }
-            .withTimeout(15, ju.concurrent.TimeUnit.SECONDS)
+            .withTimeout(
+              15,
+              ju.concurrent.TimeUnit.SECONDS,
+              Some("amending the scalafix config"),
+            )
             .map(_ => confFile)
         }).getOrElse(Future.successful(confFile))
       case _ => Future.successful(confFile)
@@ -705,7 +728,9 @@ case class ScalafixProvider(
   private def getRuleClassLoader(
       scalfixRulesKey: ScalafixRulesClasspathKey,
       scalafixClassLoader: ClassLoader,
+      isRepublished: Boolean,
   ): Future[URLClassLoader] = Future {
+    if (isRepublished) rulesClassloaderCache.remove(scalfixRulesKey)
     rulesClassloaderCache.getOrElseUpdate(
       scalfixRulesKey, {
         workDoneProgress.trackBlocking(
@@ -728,6 +753,7 @@ case class ScalafixProvider(
             Embedded.rulesClasspath(
               rulesDependencies.toList ++ organizeImportRule
             )
+          scribe.debug(s"Classpath: $paths")
           val classloader = Embedded.toClassLoader(
             Classpath(paths.map(AbsolutePath(_))),
             scalafixClassLoader,
@@ -763,6 +789,7 @@ case class ScalafixProvider(
       rules: List[String],
       additionalRules: (ScalaVersion) => Map[String, Dependency] = _ =>
         Map.empty,
+      isRepublished: Boolean = false,
   ): Future[List[l.TextEdit]] = {
     val result = for {
       buildId <- buildTargets.inverseSources(file)
@@ -773,6 +800,7 @@ case class ScalafixProvider(
         target,
         rules,
         additionalRules(target.scalaVersion),
+        isRepublished = isRepublished,
       )
     }
     result.getOrElse(Future.successful(Nil))
