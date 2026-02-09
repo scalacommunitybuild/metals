@@ -259,14 +259,14 @@ class SignatureHelpDocSuite extends BaseSignatureHelpSuite {
       |  Option(1, 2, @@2)
       |}
     """.stripMargin,
-    """|An Option factory which creates Some(x) if the argument is not null,
-       | and None if it is null.
+    """|An `Option` factory which creates `Some(x)` if the argument is not `null`,
+       | and `None` if it is `null`.
        |
        |
        |**Parameters**
        |- `x`: the value
        |
-       |**Returns:** Some(value) if value != null, None if value == null
+       |**Returns:** `Some(value)` if value != null, `None` if value == null
        |apply[A](x: A): Option[A]
        |         ^^^^
        |  @param x (Int, Int, Int) the value
