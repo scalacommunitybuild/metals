@@ -9,8 +9,8 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 Global / resolvers += "scala-nightlies" at
   "https://repo.scala-lang.org/artifactory/maven-nightlies"
 
-def localSnapshotVersion = "1.6.6-SNAPSHOT"
-def latestReleaseVersion = "1.6.5"
+def localSnapshotVersion = "1.6.8-SNAPSHOT"
+def latestReleaseVersion = "1.6.7"
 def isCI = System.getenv("CI") != null
 def isTest = System.getenv("METALS_TEST") != null
 
@@ -275,7 +275,7 @@ lazy val mtagsShared = project
     Compile / packageSrc / publishArtifact := true,
     libraryDependencies ++= List(
       "org.lz4" % "lz4-java" % "1.8.1",
-      "com.google.protobuf" % "protobuf-java" % "4.33.5",
+      "com.google.protobuf" % "protobuf-java" % "4.34.0",
       V.guava,
       "io.get-coursier" % "interface" % V.coursierInterfaces,
     ),
@@ -415,7 +415,7 @@ lazy val metals = project
       "io.undertow" % "undertow-core" % "2.2.20.Final",
       "org.jboss.xnio" % "xnio-nio" % "3.8.17.Final",
       // for persistent data like "dismissed notification"
-      "org.flywaydb" % "flyway-core" % "12.0.0",
+      "org.flywaydb" % "flyway-core" % "12.0.3",
       "com.h2database" % "h2" % "2.4.240",
       // for BSP
       "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.6.3",
@@ -446,7 +446,7 @@ lazy val metals = project
       "com.outr" %% "scribe-file" % V.scribe,
       "com.outr" %% "scribe-slf4j2" % V.scribe, // needed for flyway database migrations
       // for JSON formatted doctor
-      "com.lihaoyi" %% "ujson" % "4.4.2",
+      "com.lihaoyi" %% "ujson" % "4.4.3",
       // For fetching projects' templates
       "com.lihaoyi" %% "requests" % "0.9.3",
       // for producing SemanticDB from Scala source files, to be sure we want the same version of scalameta
@@ -463,8 +463,10 @@ lazy val metals = project
       // For MCP
       "io.modelcontextprotocol.sdk" % "mcp" % V.modelContextProtocol,
       "io.modelcontextprotocol.sdk" % "mcp-json-jackson2" % V.modelContextProtocol,
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.21.0",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.21.1",
       "io.undertow" % "undertow-servlet" % "2.3.12.Final",
+      // For Twirl
+      "org.playframework.twirl" %% "twirl-compiler" % "2.0.9",
     ),
     buildInfoPackage := "scala.meta.internal.metals",
     buildInfoKeys := Seq[BuildInfoKey](
@@ -792,6 +794,7 @@ lazy val slow = project
   .settings(
     testSettings,
     sharedSettings,
+    Test / javaOptions += "-Xmx2G",
     // Only sbt tests are sharded currently
     Test / testOptions ++= Seq(
       Tests.Filter(name =>

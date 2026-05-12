@@ -57,6 +57,8 @@ final class Diagnostics(
     TrieMap.empty[AbsolutePath, ju.Queue[DiagnosticWithOrigin]]
   private val syntaxError =
     TrieMap.empty[AbsolutePath, Diagnostic]
+  private val scalafixDiagnostics =
+    TrieMap.empty[AbsolutePath, List[Diagnostic]]
   private val snapshots =
     TrieMap.empty[AbsolutePath, Input.VirtualFile]
   private val lastPublished =
@@ -82,8 +84,9 @@ final class Diagnostics(
     }
 
   def reset(): Unit = {
-    val keys = diagnostics.keys
+    val keys = diagnostics.keys ++ scalafixDiagnostics.keys
     diagnostics.clear()
+    scalafixDiagnostics.clear()
     keys.foreach { key => publishDiagnostics(key) }
   }
 
@@ -160,17 +163,18 @@ final class Diagnostics(
       diagnostics.remove(path).toList.flatMap(_.asScala) ++
         syntaxError.remove(path)
     } else syntaxError.remove(path).toList
-    diags match {
-      case Nil =>
-        () // Do nothing, there was no previous error.
-      case _ =>
-        publishDiagnostics(path) // Remove old syntax error.
+
+    val hadScalafixDiags = scalafixDiagnostics.remove(path).isDefined
+    if (diags.nonEmpty || hadScalafixDiags) {
+      publishDiagnostics(path)
     }
   }
 
   def didDelete(path: AbsolutePath): Unit = {
     diagnostics.remove(path)
     syntaxError.remove(path)
+    scalafixDiagnostics.remove(path)
+
     languageClient.publishDiagnostics(
       new PublishDiagnosticsParams(
         path.toURI.toString(),
@@ -307,6 +311,14 @@ final class Diagnostics(
       .toList
   }
 
+  def onScalafixLint(path: AbsolutePath, diags: List[Diagnostic]): Unit = {
+    if (diags.nonEmpty)
+      scalafixDiagnostics(path) = diags
+    else
+      scalafixDiagnostics.remove(path)
+    publishDiagnostics(path)
+  }
+
   def hasSyntaxError(path: AbsolutePath): Boolean =
     syntaxError.contains(path)
 
@@ -343,12 +355,15 @@ final class Diagnostics(
       d <- syntaxError.get(path)
       // De-duplicate only the most common and basic syntax errors.
       isSameMessage = all.asScala.exists(diag =>
-        diag.getRange() == d.getRange() && diag.getMessage() == d.getMessage()
+        diag.getRange() == d
+          .getRange() && diag.getMessageAsString == d.getMessageAsString
       )
       isDuplicate =
-        d.getMessage.replace("`", "").startsWith("identifier expected but") &&
+        d.getMessageAsString
+          .replace("`", "")
+          .startsWith("identifier expected but") &&
           all.asScala.exists { other =>
-            other.getMessage
+            other.getMessageAsString
               .replace("`", "")
               .startsWith("identifier expected") &&
             other.getRange().getStart() == d.getRange().getStart()
@@ -357,6 +372,8 @@ final class Diagnostics(
     } {
       all.add(d)
     }
+    for (scalafixDiag <- scalafixDiagnostics.getOrElse(path, Nil))
+      all.add(scalafixDiag)
     languageClient.publishDiagnostics(new PublishDiagnosticsParams(uri, all))
   }
 
@@ -385,7 +402,7 @@ final class Diagnostics(
           .map { range =>
             val ld = new l.Diagnostic(
               range,
-              d.getMessage,
+              d.getMessageAsString,
               d.getSeverity,
               d.getSource,
             )
@@ -408,7 +425,7 @@ final class Diagnostics(
           d.getRange.toMeta(snapshot).foreach { pos =>
             val message = pos.formatMessage(
               s"stale ${d.getSource} ${d.getSeverity.toString.toLowerCase()}",
-              d.getMessage,
+              d.getMessageAsString,
             )
             scribe.info(message)
           }

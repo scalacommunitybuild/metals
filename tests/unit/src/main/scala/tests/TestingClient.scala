@@ -30,6 +30,7 @@ import scala.meta.internal.metals.clients.language.MetalsStatusParams
 import scala.meta.internal.metals.clients.language.NoopLanguageClient
 import scala.meta.internal.metals.clients.language.RawMetalsInputBoxResult
 import scala.meta.internal.metals.clients.language.RawMetalsQuickPickResult
+import scala.meta.internal.metals.clients.language.RawMetalsReadClipboardResult
 import scala.meta.internal.metals.clients.language.StatusType
 import scala.meta.internal.tvp.TreeViewDidChangeParams
 import scala.meta.io.AbsolutePath
@@ -142,12 +143,17 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
   var quickPickHandler: MetalsQuickPickParams => RawMetalsQuickPickResult = {
     (_: MetalsQuickPickParams) => RawMetalsQuickPickResult(cancelled = true)
   }
+  var readClipboardHandler: () => RawMetalsReadClipboardResult = { () =>
+    RawMetalsReadClipboardResult(value = null)
+  }
   var onMetalsStatus: MetalsStatusParams => Unit = { (_: MetalsStatusParams) =>
     ()
   }
 
   private val refreshCount = new AtomicInteger
   var refreshModelHandler: Int => Unit = (_) => ()
+  private val diagnosticsPromises =
+    TrieMap.empty[AbsolutePath, (Promise[Unit], Seq[Diagnostic] => Boolean)]
 
   val testExplorerUpdates: Promise[List[JsonObject]] =
     Promise[List[JsonObject]]()
@@ -201,9 +207,11 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
     documentChange match {
       case Left(textDocumentEdit: TextDocumentEdit) =>
         val document = textDocumentEdit.getTextDocument
-        val edits = textDocumentEdit.getEdits
+        val edits = textDocumentEdit.getEdits.asScala
+          .flatMap(e => if (e.isLeft) Some(e.getLeft) else None)
+          .toList
         val uri = document.getUri
-        applyEdits(uri, edits)
+        applyEdits(uri, edits.asJava)
       case Right(resourceOperation: ResourceOperation) =>
         resources.applyResourceOperation(resourceOperation)
     }
@@ -288,7 +296,8 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
     val sb = new StringBuilder
     diags.foreach { diag =>
       val message =
-        if (formatMessage) diag.formatMessage(input) else diag.getMessage
+        if (formatMessage) diag.formatMessage(input)
+        else diag.getMessageAsString
       sb.append(message).append("\n")
     }
     sb.toString()
@@ -336,6 +345,26 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
     diagnosticsCount
       .getOrElseUpdate(path, new AtomicInteger())
       .incrementAndGet()
+    diagnosticsPromises.get(path).foreach { case (promise, condition) =>
+      if (condition(params.getDiagnostics.asScala.toSeq)) {
+        diagnosticsPromises.remove(path)
+        promise.trySuccess(())
+      }
+    }
+  }
+
+  def nextDiagnosticsFor(
+      path: AbsolutePath,
+      condition: Seq[Diagnostic] => Boolean = _ => true,
+  ): Future[Unit] = {
+    val promise = Promise[Unit]()
+    diagnosticsPromises.put(path, (promise, condition)).foreach {
+      case (oldPromise, _) =>
+        oldPromise.tryFailure(
+          new Exception("Replaced by a newer nextDiagnosticsFor call")
+        )
+    }
+    promise.future
   }
   override def showMessage(params: MessageParams): Unit = {
     showMessageHandler(params)
@@ -494,6 +523,11 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
       messageRequests.addLast(params.prompt)
       inputBoxHandler(params)
     }
+  }
+
+  override def rawMetalsReadClipboard()
+      : CompletableFuture[RawMetalsReadClipboardResult] = {
+    CompletableFuture.completedFuture(readClipboardHandler())
   }
 
   override def rawMetalsQuickPick(

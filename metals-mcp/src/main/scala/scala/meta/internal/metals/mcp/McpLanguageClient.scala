@@ -12,6 +12,7 @@ import scala.meta.internal.metals.clients.language.MetalsQuickPickParams
 import scala.meta.internal.metals.clients.language.MetalsStatusParams
 import scala.meta.internal.metals.clients.language.RawMetalsInputBoxResult
 import scala.meta.internal.metals.clients.language.RawMetalsQuickPickResult
+import scala.meta.internal.metals.clients.language.RawMetalsReadClipboardResult
 import scala.meta.internal.tvp.TreeViewDidChangeParams
 import scala.meta.io.AbsolutePath
 
@@ -44,6 +45,13 @@ import org.eclipse.lsp4j.WorkspaceFolder
  */
 class McpLanguageClient(workspace: AbsolutePath) extends MetalsLanguageClient {
 
+  override def rawMetalsReadClipboard()
+      : CompletableFuture[RawMetalsReadClipboardResult] = {
+    CompletableFuture.completedFuture(
+      RawMetalsReadClipboardResult(value = null)
+    )
+  }
+
   override def telemetryEvent(value: Object): Unit = {
     scribe.debug(s"[MCP Telemetry] $value")
   }
@@ -51,7 +59,7 @@ class McpLanguageClient(workspace: AbsolutePath) extends MetalsLanguageClient {
   override def publishDiagnostics(
       diagnostics: PublishDiagnosticsParams
   ): Unit = {
-    // diagnotics are server via the compile request
+    // diagnostics are served via the compile request
   }
 
   override def showMessage(message: MessageParams): Unit = {
@@ -133,8 +141,10 @@ class McpLanguageClient(workspace: AbsolutePath) extends MetalsLanguageClient {
             val path = uri.toAbsolutePath
 
             if (path.exists) {
-              val textEdits = textDocEdit.getEdits
-              updateFile(path, textEdits)
+              val textEdits = textDocEdit.getEdits.asScala
+                .flatMap(e => if (e.isLeft) Some(e.getLeft) else None)
+                .toList
+              updateFile(path, textEdits.asJava)
             }
           }
         }
@@ -163,7 +173,7 @@ class McpLanguageClient(workspace: AbsolutePath) extends MetalsLanguageClient {
     }
   }
 
-  // Execute client command - no-op,
+  // Execute client command - no-op
   override def metalsExecuteClientCommand(
       params: ExecuteCommandParams
   ): Unit = {

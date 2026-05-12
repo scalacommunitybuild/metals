@@ -51,6 +51,7 @@ case class UserConfiguration(
     testUserInterface: TestUserInterfaceKind = TestUserInterfaceKind.CodeLenses,
     javaFormatConfig: Option[JavaFormatConfig] = None,
     scalafixRulesDependencies: List[String] = Nil,
+    scalafixLintEnabled: Boolean = false,
     customProjectRoot: Option[String] = None,
     verboseCompilation: Boolean = false,
     automaticImportBuild: AutoImportBuildKind = AutoImportBuildKind.Off,
@@ -98,7 +99,6 @@ case class UserConfiguration(
       optStringField("millScript", millScript),
       optStringField("scalafmtConfigPath", scalafmtConfigPath),
       optStringField("scalafixConfigPath", scalafixConfigPath),
-      optStringField("scalafixConfigPath", scalafixConfigPath),
       mapField("symbolPrefixes", symbolPrefixes),
       Some(("worksheetScreenWidth", worksheetScreenWidth)),
       Some(("worksheetCancelTimeout", worksheetCancelTimeout)),
@@ -133,6 +133,7 @@ case class UserConfiguration(
         "scalafixRulesDependencies",
         Some(scalafixRulesDependencies),
       ),
+      Some(("scalafixLintEnabled", scalafixLintEnabled)),
       optStringField("customProjectRoot", customProjectRoot),
       Some(("verboseCompilation", verboseCompilation)),
       Some(
@@ -202,14 +203,17 @@ object UserConfiguration {
     List(
       UserConfigurationOption(
         "java-home",
-        "`JAVA_HOME` environment variable with fallback to `user.home` system property.",
+        "",
         """"/Library/Java/JavaVirtualMachines/jdk1.8.0_192.jdk/Contents/Home"""",
         "Java Home directory",
         "The Java Home directory used for indexing JDK sources and locating the `java` binary.",
+        defaultDescription = Some(
+          "`JAVA_HOME` environment variable with fallback to `user.home` system property."
+        ),
       ),
       UserConfigurationOption(
         "sbt-script",
-        """empty string `""`.""",
+        "",
         """"/usr/local/bin/sbt"""",
         "sbt script",
         """Optional absolute path to an `sbt` executable to use for running `sbt bloopInstall`.
@@ -220,7 +224,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "gradle-script",
-        """empty string `""`.""",
+        "",
         """"/usr/local/bin/gradle"""",
         "Gradle script",
         """Optional absolute path to a `gradle` executable to use for running `gradle bloopInstall`.
@@ -230,7 +234,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "maven-script",
-        """empty string `""`.""",
+        "",
         """"/usr/local/bin/mvn"""",
         "Maven script",
         """Optional absolute path to a `maven` executable to use for generating bloop config.
@@ -239,7 +243,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "mill-script",
-        """empty string `""`.""",
+        "",
         """"/usr/local/bin/mill"""",
         "Mill script",
         """Optional absolute path to a `mill` executable to use for running `mill mill.contrib.bloop.Bloop/install`.
@@ -249,7 +253,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "scalafmt-config-path",
-        """empty string `""`.""",
+        "",
         """"project/.scalafmt.conf"""",
         "Scalafmt config path",
         """Optional custom path to the .scalafmt.conf file.
@@ -259,7 +263,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "scalafix-config-path",
-        """empty string `""`.""",
+        "",
         """"project/.scalafix.conf"""",
         "Scalafix config path",
         """Optional custom path to the .scalafix.conf file.
@@ -268,8 +272,27 @@ object UserConfiguration {
           |""".stripMargin,
       ),
       UserConfigurationOption(
+        "scalafix-rules-dependencies",
+        "[]",
+        """["com.github.liancheng::organize-imports:0.6.0"]""",
+        "Scalafix rules dependencies",
+        """Optional list of Scalafix rules dependencies to use for running `scalafix --rules`.""",
+        isArray = true,
+      ),
+      UserConfigurationOption(
+        "scalafix-lint-enabled",
+        "false",
+        "false",
+        "Enable Scalafix lint diagnostics",
+        """When enabled, Scalafix rules from `.scalafix.conf` will be run on
+          |semanticdb updates and lint diagnostics will be published alongside
+          |compiler diagnostics. Only lint diagnostics are shown; no code rewrites are applied.
+          |""".stripMargin,
+        isBoolean = true,
+      ),
+      UserConfigurationOption(
         "excluded-packages",
-        """`[]`.""",
+        "[]",
         """["akka.actor.typed.javadsl"]""",
         "Excluded Packages",
         s"""|Packages that will be excluded from completions, imports, and symbol searches.
@@ -289,11 +312,15 @@ object UserConfiguration {
             |["--sun"]
             |```
             |""".stripMargin,
+        isArray = true,
       ),
       UserConfigurationOption(
-        "bloop-sbt-already-installed", "false", "false",
+        "bloop-sbt-already-installed",
+        "false",
+        "false",
         "Don't generate Bloop plugin file for sbt",
         "If true, Metals will not generate `metals.sbt` files under the assumption that sbt-bloop is already manually installed in the sbt build. Build import will fail with a 'not valid command bloopInstall' error in case Bloop is not manually installed in the build when using this option.",
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "bloop-version",
@@ -305,12 +332,13 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "bloop-jvm-properties",
-        """["-Xmx1G"].""",
+        """["-Xmx1G"]""",
         """["-Xmx1G"]""",
         "Bloop JVM Properties",
         """|Optional list of JVM properties to pass along to the Bloop server.
            |Please follow this guide for the format https://scalacenter.github.io/bloop/docs/server-reference#global-settings-for-the-server"
            |""".stripMargin,
+        isArray = true,
       ),
       UserConfigurationOption(
         "super-method-lenses-enabled",
@@ -321,6 +349,7 @@ object UserConfiguration {
            |Disabled lenses are not calculated for opened documents which might speed up document processing.
            |
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.inferred-types.enable",
@@ -331,6 +360,7 @@ object UserConfiguration {
            |displayed either as additional decorations if they are supported by the editor or
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.named-parameters.enable",
@@ -341,6 +371,7 @@ object UserConfiguration {
            |displayed either as additional decorations if they are supported by the editor or 
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.by-name-parameters.enable",
@@ -351,6 +382,7 @@ object UserConfiguration {
            |displayed either as additional '=>' decorations if they are supported by the editor or 
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.implicit-arguments.enable",
@@ -361,6 +393,7 @@ object UserConfiguration {
            |displayed either as additional decorations if they are supported by the editor or 
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.implicit-conversions.enable",
@@ -371,6 +404,7 @@ object UserConfiguration {
            |displayed either as additional decorations if they are supported by the editor or 
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.type-parameters.enable",
@@ -381,6 +415,7 @@ object UserConfiguration {
            |displayed either as additional decorations if they are supported by the editor or
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.hints-in-pattern-match.enable",
@@ -391,6 +426,7 @@ object UserConfiguration {
            |displayed either as additional decorations if they are supported by the editor or
            |shown in the hover.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.hints-x-ray-mode.enable",
@@ -400,6 +436,7 @@ object UserConfiguration {
         """|When this option is enabled, each method/attribute call in a multi-line chain will get
            | its own type annotation.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "inlay-hints.closing-labels.enable",
@@ -409,6 +446,7 @@ object UserConfiguration {
         """|When this option is enabled, each method/class/object definition that uses braces syntax,
            | will get a closing label hint next to the closing brace with the name of the definition.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "enable-semantic-highlighting",
@@ -418,6 +456,7 @@ object UserConfiguration {
         """|When this option is enabled, Metals will provide semantic tokens for clients that support it.
            |The feature should work within all supported files extensions aside from Java.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "enable-indent-on-paste",
@@ -427,6 +466,7 @@ object UserConfiguration {
         """|When this option is enabled, when a snippet is pasted into a Scala file, Metals will
            |try to adjust the indentation to that of the current cursor.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "fallback-scala-version",
@@ -440,17 +480,18 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "test-user-interface",
-        "Code Lenses",
+        "code lenses",
         "test explorer",
         "Test UI used for tests and test suites",
         """|Default way of handling tests and test suites.  The only valid values are
            |"code lenses" and "test explorer".  See https://scalameta.org/metals/docs/integrations/test-explorer
            |for information on how to work with the test explorer.
            |""".stripMargin,
+        values = Some(List("code lenses", "test explorer")),
       ),
       UserConfigurationOption(
         "java-format.eclipse-config-path",
-        """empty string `""`.""",
+        "",
         """"formatters/eclipse-formatter.xml"""",
         "Eclipse Java formatter config path",
         """Optional custom path to the eclipse-formatter.xml file.
@@ -460,7 +501,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "java-format.eclipse-profile",
-        """empty string `""`.""",
+        "",
         """"GoogleStyle"""",
         "Eclipse Java formatting profile",
         """|If the Eclipse formatter file contains more than one profile, this option can be used to control which is used.
@@ -468,7 +509,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "scala-cli-launcher",
-        """empty string `""`.""",
+        "",
         """"/usr/local/bin/scala-cli"""",
         "Scala CLI launcher",
         """Optional absolute path to a `scala-cli` executable to use for running a Scala CLI BSP server.
@@ -479,7 +520,7 @@ object UserConfiguration {
       ),
       UserConfigurationOption(
         "custom-project-root",
-        """empty string `""`.""",
+        "",
         """"backend/scalaProject/"""",
         "Custom project root",
         """Optional relative path to your project's root.
@@ -493,19 +534,21 @@ object UserConfiguration {
         """|If a build server supports it (for example Bloop or Scala CLI), setting it to true
            |will make the logs contain all the possible debugging information including
            |about incremental compilation in Zinc.""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "auto-import-builds",
         "off",
         "all",
         "Import build when changes detected without prompting",
-        """|Automatically import builds rather than prompting the user to choose. "initial" will 
-           |only automatically import a build when a project is first opened, "all" will automate 
+        """|Automatically import builds rather than prompting the user to choose. "initial" will
+           |only automatically import a build when a project is first opened, "all" will automate
            |build imports after subsequent changes as well.""".stripMargin,
+        values = Some(List("off", "initial", "all")),
       ),
       UserConfigurationOption(
         "target-build-tool",
-        """empty string `""`.""",
+        "",
         """"bazel"""",
         "Preferred build tool when multiple are detected",
         """|The preferred build tool to use when multiple build definitions are detected in the workspace.
@@ -521,6 +564,7 @@ object UserConfiguration {
         """|If your build tool can also serve as a build server,
            |default to using it instead of Bloop.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "enable-best-effort",
@@ -530,10 +574,11 @@ object UserConfiguration {
         """|When using Scala 3, use best effort compilation to improve Metals 
            |correctness when the workspace doesn't compile.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "default-shell",
-        """empty string `""`.""",
+        "",
         "/usr/bin/fish",
         "Full path to the shell executable to be used as the default",
         """|Optionally provide a default shell executable to use for build operations.
@@ -549,10 +594,11 @@ object UserConfiguration {
         "Start MCP server",
         """|If Metals should start the MCP (SSE) server, that an AI agent can connect to.
            |""".stripMargin,
+        isBoolean = true,
       ),
       UserConfigurationOption(
         "mcp-client",
-        """empty string `""`.""",
+        "",
         "claude",
         "MCP Client Name",
         """|This is used in situations where the client you're using doesn't match the editor
@@ -564,6 +610,9 @@ object UserConfiguration {
            |""".stripMargin,
       ),
     )
+
+  def listOptions: String =
+    options.map(_.oneLiner).mkString("\n")
 
   def fromJson(
       json: JsonObject,
@@ -825,6 +874,9 @@ object UserConfiguration {
     val scalafixRulesDependencies =
       getStringListKey("scalafix-rules-dependencies").getOrElse(Nil)
 
+    val scalafixLintEnabled =
+      getBooleanKey("scalafix-lint-enabled").getOrElse(false)
+
     val customProjectRoot = getStringKey("custom-project-root")
     val verboseCompilation =
       getBooleanKey("verbose-compilation").getOrElse(false)
@@ -885,6 +937,7 @@ object UserConfiguration {
           disableTestCodeLenses,
           javaFormatConfig,
           scalafixRulesDependencies,
+          scalafixLintEnabled,
           customProjectRoot,
           verboseCompilation,
           autoImportBuilds,
