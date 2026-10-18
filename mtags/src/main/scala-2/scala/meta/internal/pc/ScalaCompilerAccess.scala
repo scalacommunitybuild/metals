@@ -37,7 +37,10 @@ class ScalaCompilerWrapper(global: MetalsGlobal)
   }
 
   override def stop(): Unit = {
-    global.presentationCompilerThread.stop()
+    // Thread.stop throws on JDK 20+ and is gone in JDK 26+
+    val thread = global.presentationCompilerThread
+    try classOf[Thread].getMethod("stop").invoke(thread)
+    catch { case _: ReflectiveOperationException => thread.interrupt() }
   }
 
   override def presentationCompilerThread: Option[Thread] = {
